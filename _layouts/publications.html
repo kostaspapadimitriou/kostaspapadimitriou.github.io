@@ -1,0 +1,843 @@
+---
+layout: default
+---
+
+<script type="text/javascript">
+<!--
+// QuickSearch script for JabRef HTML export 
+// Version: 3.0
+//
+// Copyright (c) 2006-2011, Mark Schenk
+//
+// This software is distributed under a Creative Commons Attribution 3.0 License
+// http://creativecommons.org/licenses/by/3.0/
+//
+// Features:
+// - intuitive find-as-you-type searching
+//    ~ case insensitive
+//    ~ ignore diacritics (optional)
+//
+// - search with/without Regular Expressions
+// - match BibTeX key
+//
+
+// Search settings
+var searchAbstract = true;	// search in abstract
+var searchReview = true;	// search in review
+
+var noSquiggles = true; 	// ignore diacritics when searching
+var searchRegExp = false; 	// enable RegExp searches
+
+
+if (window.addEventListener) {
+	window.addEventListener("load",initSearch,false); }
+else if (window.attachEvent) {
+	window.attachEvent("onload", initSearch); }
+
+function initSearch() {
+	// check for quick search table and searchfield
+	if (!document.getElementById('qs_table')||!document.getElementById('quicksearch')) { return; }
+
+	// load all the rows and sort into arrays
+	loadTableData();
+	
+	//find the query field
+	qsfield = document.getElementById('qs_field');
+
+	// previous search term; used for speed optimisation
+	prevSearch = '';
+
+	//find statistics location
+	stats = document.getElementById('stat');
+	setStatistics(-1);
+	
+	// set up preferences
+	initPreferences();
+
+	// shows the searchfield
+	document.getElementById('quicksearch').style.display = 'block';
+	document.getElementById('qs_field').onkeyup = quickSearch;
+}
+
+function loadTableData() {
+	// find table and appropriate rows
+	searchTable = document.getElementById('qs_table');
+	var allRows = searchTable.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+	// split all rows into entryRows and infoRows (e.g. abstract, review, bibtex)
+	entryRows = new Array(); infoRows = new Array(); absRows = new Array(); revRows = new Array();
+
+	// get data from each row
+	entryRowsData = new Array(); absRowsData = new Array(); revRowsData = new Array(); 
+	
+	BibTeXKeys = new Array();
+	
+	for (var i=0, k=0, j=0; i<allRows.length;i++) {
+		if (allRows[i].className.match(/entry/)) {
+			entryRows[j] = allRows[i];
+			entryRowsData[j] = stripDiacritics(getTextContent(allRows[i]));
+			allRows[i].id ? BibTeXKeys[j] = allRows[i].id : allRows[i].id = 'autokey_'+j;
+			j ++;
+		} else {
+			infoRows[k++] = allRows[i];
+			// check for abstract/review
+			if (allRows[i].className.match(/abstract/)) {
+				absRows.push(allRows[i]);
+				absRowsData[j-1] = stripDiacritics(getTextContent(allRows[i]));
+			} else if (allRows[i].className.match(/review/)) {
+				revRows.push(allRows[i]);
+				revRowsData[j-1] = stripDiacritics(getTextContent(allRows[i]));
+			}
+		}
+	}
+	//number of entries and rows
+	numEntries = entryRows.length;
+	numInfo = infoRows.length;
+	numAbs = absRows.length;
+	numRev = revRows.length;
+}
+
+function quickSearch(){
+	
+	tInput = qsfield;
+
+	if (tInput.value.length == 0) {
+		showAll();
+		setStatistics(-1);
+		qsfield.className = '';
+		return;
+	} else {
+		t = stripDiacritics(tInput.value);
+
+		if(!searchRegExp) { t = escapeRegExp(t); }
+			
+		// only search for valid RegExp
+		try {
+			textRegExp = new RegExp(t,"i");
+			closeAllInfo();
+			qsfield.className = '';
+		}
+			catch(err) {
+			prevSearch = tInput.value;
+			qsfield.className = 'invalidsearch';
+			return;
+		}
+	}
+	
+	// count number of hits
+	var hits = 0;
+
+	// start looping through all entry rows
+	for (var i = 0; cRow = entryRows[i]; i++){
+
+		// only show search the cells if it isn't already hidden OR if the search term is getting shorter, then search all
+		if(cRow.className.indexOf('noshow')==-1 || tInput.value.length <= prevSearch.length){
+			var found = false; 
+
+			if (entryRowsData[i].search(textRegExp) != -1 || BibTeXKeys[i].search(textRegExp) != -1){ 
+				found = true;
+			} else {
+				if(searchAbstract && absRowsData[i]!=undefined) {
+					if (absRowsData[i].search(textRegExp) != -1){ found=true; } 
+				}
+				if(searchReview && revRowsData[i]!=undefined) {
+					if (revRowsData[i].search(textRegExp) != -1){ found=true; } 
+				}
+			}
+			
+			if (found){
+				cRow.className = 'entry show';
+				hits++;
+			} else {
+				cRow.className = 'entry noshow';
+			}
+		}
+	}
+
+	// update statistics
+	setStatistics(hits)
+	
+	// set previous search value
+	prevSearch = tInput.value;
+}
+
+
+// Strip Diacritics from text
+// http://stackoverflow.com/questions/990904/javascript-remove-accents-in-strings
+
+// String containing replacement characters for stripping accents 
+var stripstring = 
+    'AAAAAAACEEEEIIII'+
+    'DNOOOOO.OUUUUY..'+
+    'aaaaaaaceeeeiiii'+
+    'dnooooo.ouuuuy.y'+
+    'AaAaAaCcCcCcCcDd'+
+    'DdEeEeEeEeEeGgGg'+
+    'GgGgHhHhIiIiIiIi'+
+    'IiIiJjKkkLlLlLlL'+
+    'lJlNnNnNnnNnOoOo'+
+    'OoOoRrRrRrSsSsSs'+
+    'SsTtTtTtUuUuUuUu'+
+    'UuUuWwYyYZzZzZz.';
+
+function stripDiacritics(str){
+
+    if(noSquiggles==false){
+        return str;
+    }
+
+    var answer='';
+    for(var i=0;i<str.length;i++){
+        var ch=str[i];
+        var chindex=ch.charCodeAt(0)-192;   // Index of character code in the strip string
+        if(chindex>=0 && chindex<stripstring.length){
+            // Character is within our table, so we can strip the accent...
+            var outch=stripstring.charAt(chindex);
+            // ...unless it was shown as a '.'
+            if(outch!='.')ch=outch;
+        }
+        answer+=ch;
+    }
+    return answer;
+}
+
+// http://stackoverflow.com/questions/3446170/escape-string-for-use-in-javascript-regex
+// NOTE: must escape every \ in the export code because of the JabRef Export...
+function escapeRegExp(str) {
+  return str.replace(/[-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
+}
+
+function toggleInfo(articleid,info) {
+
+	var entry = document.getElementById(articleid);
+	var abs = document.getElementById('abs_'+articleid);
+	var rev = document.getElementById('rev_'+articleid);
+	var bib = document.getElementById('bib_'+articleid);
+	
+	if (abs && info == 'abstract') {
+		abs.className.indexOf('noshow') == -1?abs.className = 'abstract noshow':abs.className = 'abstract show';
+	} else if (rev && info == 'review') {
+		rev.className.indexOf('noshow') == -1?rev.className = 'review noshow':rev.className = 'review show';
+	} else if (bib && info == 'bibtex') {
+		bib.className.indexOf('noshow') == -1?bib.className = 'bibtex noshow':bib.className = 'bibtex show';
+	} else { 
+		return;
+	}
+
+	// check if one or the other is available
+	var revshow; var absshow; var bibshow;
+	(abs && abs.className.indexOf('noshow') == -1)? absshow = true: absshow = false;
+	(rev && rev.className.indexOf('noshow') == -1)? revshow = true: revshow = false;	
+	(bib && bib.className.indexOf('noshow') == -1)? bibshow = true: bibshow = false;
+	
+	// highlight original entry
+	if(entry) {
+		if (revshow || absshow || bibshow) {
+		entry.className = 'entry highlight show';
+		} else {
+		entry.className = 'entry show';
+		}
+	}
+	
+	// When there's a combination of abstract/review/bibtex showing, need to add class for correct styling
+	if(absshow) {
+		(revshow||bibshow)?abs.className = 'abstract nextshow':abs.className = 'abstract';
+	} 
+	if (revshow) {
+		bibshow?rev.className = 'review nextshow': rev.className = 'review';
+	}	
+	
+}
+
+function setStatistics (hits) {
+	if(hits < 0) { hits=numEntries; }
+	if(stats) { stats.firstChild.data = hits + '/' + numEntries}
+}
+
+function getTextContent(node) {
+	// Function written by Arve Bersvendsen
+	// http://www.virtuelvis.com
+	
+	if (node.nodeType == 3) {
+	return node.nodeValue;
+	} // text node
+	if (node.nodeType == 1 && node.className != "infolinks") { // element node
+	var text = [];
+	for (var chld = node.firstChild;chld;chld=chld.nextSibling) {
+		text.push(getTextContent(chld));
+	}
+	return text.join("");
+	} return ""; // some other node, won't contain text nodes.
+}
+
+function showAll(){
+	closeAllInfo();
+	for (var i = 0; i < numEntries; i++){ entryRows[i].className = 'entry show'; }
+}
+
+function closeAllInfo(){
+	for (var i=0; i < numInfo; i++){
+		if (infoRows[i].className.indexOf('noshow') ==-1) {
+			infoRows[i].className = infoRows[i].className + ' noshow';
+		}
+	}
+}
+
+function clearQS() {
+	qsfield.value = '';
+	showAll();
+}
+
+function redoQS(){
+	showAll();
+	quickSearch(qsfield);
+}
+
+function updateSetting(obj){
+	var option = obj.id;
+	var checked = obj.value;
+
+	switch(option)
+	 {
+	 case "opt_searchAbs":
+	   searchAbstract=!searchAbstract;
+	   redoQS();
+	   break;
+	 case "opt_searchRev":
+	   searchReview=!searchReview;
+	   redoQS();
+	   break;
+	 case "opt_useRegExp":
+	   searchRegExp=!searchRegExp;
+	   redoQS();
+	   break;
+	 case "opt_noAccents":
+	   noSquiggles=!noSquiggles;
+	   loadTableData();
+	   redoQS();
+	   break;
+	 }
+}
+
+function initPreferences(){
+	if(searchAbstract){document.getElementById("opt_searchAbs").checked = true;}
+	if(searchReview){document.getElementById("opt_searchRev").checked = true;}
+	if(noSquiggles){document.getElementById("opt_noAccents").checked = true;}
+	if(searchRegExp){document.getElementById("opt_useRegExp").checked = true;}
+	
+	if(numAbs==0) {document.getElementById("opt_searchAbs").parentNode.style.display = 'none';}
+	if(numRev==0) {document.getElementById("opt_searchRev").parentNode.style.display = 'none';}	
+}
+
+function toggleSettings(){
+	var togglebutton = document.getElementById('showsettings');
+	var settings = document.getElementById('settings');
+	
+	if(settings.className == "hidden"){
+		settings.className = "show";
+		togglebutton.innerText = "close settings";
+		togglebutton.textContent = "close settings";
+	}else{
+		settings.className = "hidden";
+		togglebutton.innerText = "settings...";		
+		togglebutton.textContent = "settings...";
+	}
+}
+
+-->
+</script>
+<style type="text/css">
+
+
+form#quicksearch { width: auto; border-style: solid; border-color: white; border-width: 1px 0px; padding: 0.7em 0.5em; display:none; position:relative; }
+span#searchstat {padding-left: 1em;}
+
+div#settings { margin-top:0.7em; /* border-bottom: 1px transparent solid; background-color: #efefef; border: 1px grey solid; */ }
+div#settings ul {margin: 0; padding: 0; }
+div#settings li {margin: 0; padding: 0 1em 0 0; display: inline; list-style: none; }
+div#settings li + li { border-left: 2px #efefef solid; padding-left: 0.5em;}
+div#settings input { margin-bottom: 0px;}
+
+div#settings.hidden {display:none;}
+
+#showsettings { border: 1px grey solid; padding: 0 0.5em; float:right; line-height: 1.6em; text-align: right; }
+#showsettings:hover { cursor: pointer; }
+
+.invalidsearch { background-color: red; }
+input[type="button"] { background-color: green; border: 1px #2E2E2E solid;}
+
+table { border: 1px gray none; width: 100%; empty-cells: show; border-spacing: 0em 0.1em; margin: 1em 0em; }
+th, td { border: none; padding: 0.5em; vertical-align: top; text-align: justify; }
+
+td a { color: green; text-decoration: none; }
+td a:hover  { text-decoration: underline; }
+
+tr.noshow { display: none;}
+tr.highlight td { background-color: #252a34; border-top: 2px #eaeaea solid; font-weight: bold; }
+tr.abstract td, tr.review td, tr.bibtex td { background-color: #252a34; text-align: justify; border-bottom: 2px red solid; }
+tr.nextshow td { border-bottom-style: none; }
+
+tr.bibtex pre { width: 100%; overflow: auto; white-space: pre-wrap;}
+p.infolinks { margin: 0.3em 0em 0em 0em; padding: 0px; }
+
+@media print {
+	p.infolinks, #qs_settings, #quicksearch, t.bibtex { display: none !important; }
+	tr { page-break-inside: avoid; }
+}
+</style>
+
+
+{% if page.header.overlay_color or page.header.overlay_image or page.header.image %}
+  {% include page__hero.html %}
+{% elsif page.header.video.id and page.header.video.provider %}
+  {% include page__hero_video.html %}
+{% endif %}
+
+{% if page.url != "/" and site.breadcrumbs %}
+  {% unless paginator %}
+    {% include breadcrumbs.html %}
+  {% endunless %}
+{% endif %}
+
+<div id="main" role="main">
+  {% include sidebar.html %}
+
+  <div class="archive">
+    {% unless page.header.overlay_color or page.header.overlay_image %}
+      <h1 class="page__title">{{ page.title }}</h1>
+    {% endunless %}
+    {{ content }}
+
+
+
+
+<form action="" id="quicksearch">
+<input type="text" id="qs_field" autocomplete="off" placeholder="Type to search..." /> <input type="button" onclick="clearQS()" value="clear" />
+<span id="searchstat">Matching entries: <span id="stat">0</span></span>
+<div id="showsettings" onclick="toggleSettings()">settings...</div>
+<div id="settings" class="hidden">
+<ul>
+<li><input type="checkbox" class="search_setting" id="opt_searchAbs" onchange="updateSetting(this)"><label for="opt_searchAbs"> include abstract</label></li>
+<li><input type="checkbox" class="search_setting" id="opt_searchRev" onchange="updateSetting(this)"><label for="opt_searchRev"> include review</label></li>
+<li><input type="checkbox" class="search_setting" id="opt_useRegExp" onchange="updateSetting(this)"><label for="opt_useRegExp"> use RegExp</label></li>
+<li><input type="checkbox" class="search_setting" id="opt_noAccents" onchange="updateSetting(this)"><label for="opt_noAccents"> ignore accents</label></li>
+</ul>
+</div>
+</form>
+<table id="qs_table" border="1">
+<tbody>
+<tr id="zafeiropoulos2018" class="entry">
+	<td>Zafeiropoulos G<sup><font color="red">*</font></sup>, <font color="aqua"> <u>Papadimitriou KI</u><sup><font color="red">*</font></sup></font> and Drakakis E (2018), <i>"<u>P</u>erformance <u>AN</u>d <u>AC</u>curacy in <u>E</u>lectrical Bio<u>A</u>ctivity Recordings (PANACEA): A High-Performance, Wireless, Multi-instrument for Potentiometric and Amperometric Recording of Biosignals"</i>, Measurement., June, 2018. 
+	<p class="infolinks">[<a href="javascript:toggleInfo('zafeiropoulos2018','abstract')">Abstract</a>][<a href="javascript:toggleInfo('zafeiropoulos2018','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.1016/j.measurement.2018.05.115" target="_blank">DOI</a>]</p>
+	</td>
+</tr>
+<tr id="abs_zafeiropoulos2018" class="abstract noshow">
+	<td><b>Abstract</b>: This paper presents the design, testing and quantitative evaluation of a high-performance, low-power, portable multi-instrument (107x79mm^2), capable of recording important biosignals accurately and in real-time. This highly versatile system has the ability to transmit the captured bio-data back to the user either in a wired (HDMI cable) or wireless (ZigBee protocol) manner, depending on the targeted application. The biological information that can be recorded by the proposed instrument spans a wide range of bio-potentials and bio-amperometric signals. The proposed instrument is split into two complementary “sub-instruments”, where one is operating as the front-end device, responsible for the accurate, low-noise signal detection and transmission, while the second “sub-instrument” is operating as the “base station”, responsible for the collection and further processing of the captured data. For wired transmission (e.g to the user’s PC) the front end module can operate independently, however, for wireless transmission both “sub-instruments” are required (transmitter-base station architecture). For wireless transmission, each of the two “sub-instruments” is equipped with dedicated 2 Mbps ZigBee radio transceivers and both parts are controlled by a small area embedded FPGA module. The front-end device features two distinct sections: (a) a current/voltage to voltage section comprising six potentiometry and two transimpedance amplifier-based amperometry channels. These eight in total analogue channels are converted into digital form by means of a 24 bit, voltage input, Analogue-to-Digital Converter (ADC) and (b) a four channel, commercially available switched-capacitor-based ADC Integrated Circuit (IC), which converts input charge to digital data with 16 or 20 bit resolution at 3.125 kSPS. The paper presents a plethora of measured wired and wireless experimental results, corresponding to most well-known biomedical and other biological/physical signals including: EEG, ECoG, EMG, ECG, PPG, intracardiac atrial fibrillation (AF) signals, cell media/tissue biopotential, drosophila H1-cell spiking signals and pH sensing using commercially available electrodes. The portable/wearable poly-instrument is suitable for Intensive Care Unit (ICU), High Dependancy Unit (HDU) as well as home monitoring.</td>
+</tr>
+<tr id="bib_zafeiropoulos2018" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{zafeiropoulos2018,
+  author = {Zafeiropoulos, GC. and Papadimitriou, KI and Drakakis, EM},
+  title = {Performance ANd ACcuracy in Electrical BioActivity Recordings (PANACEA): A High-Performance, Wireless, Multi-instrument for Potentiometric and Amperometric Recording of Biosignals},
+  journal = {Measurement},
+  year = {2018},
+  doi = {10.1016/j.measurement.2018.05.115}
+}
+</pre></td>
+</tr>
+<tr id="papadimitriou2018" class="entry">
+	<td><font color="aqua"> <u>Papadimitriou KI</u></font>, Dempsey LA, Hebden JC, Arridge SR and Powell S (2018), <i>"A spread spectrum approach to time-domain near-infrared diffuse optical imaging using inexpensive optical transceiver modules"</i>, Biomedical Optics Express., May, 2018.  Vol. 9(6) OSA.
+	<p class="infolinks">[<a href="javascript:toggleInfo('papadimitriou2018','abstract')">Abstract</a>] [<a href="javascript:toggleInfo('papadimitriou2018','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.1364/BOE.9.002648" target="_blank">DOI</a>]</p>
+	</td>
+</tr>
+<tr id="abs_papadimitriou2018" class="abstract noshow">
+	<td><b>Abstract</b>: We introduce a compact time-domain system for near-infrared spectroscopy using a spread spectrum technique. The proof-of-concept single channel instrument utilises a low-cost commercially available optical transceiver module as a light source, controlled by a Kintex 7 field programmable gate array (FPGA). The FPGA modulates the optical transceiver with maximum-length sequences at line rates up to 10Gb/s, allowing us to achieve an instrument response function with full width at half maximum under 600ps. The instrument is characterised through a set of detailed phantom measurements as well as proof-of-concept in vivo measurements, demonstrating performance comparable with conventional pulsed time-domain near-infrared spectroscopy systems.</td>
+</tr>
+<tr id="bib_papadimitriou2018" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{papadimitriou2018,
+  author = {Papadimitriou, Konstantinos I. and Dempsey, Laura A. and Hebden, Jeremy C. and Arridge, Simon R. and Powell, Samuel},
+  title = {A spread spectrum approach to time-domain near-infrared diffuse optical imaging using inexpensive optical transceiver modules},
+  journal = {Biomedical Optics Express},
+  publisher = {OSA},
+  year = {2018},
+  volume = {9},
+  number = {6},
+  doi = {10.1364/BOE.9.002648}
+}
+</pre></td>
+</tr>
+<tr id="vasilakis2018" class="entry">
+	<td>Vasilakis N, <font color="aqua"> <u>Papadimitriou KI</u></font>, Morgan H and Prodromakis T (2018), <i>"Novel modular pressure and flow rate balanced microfluidic serial dilution networks on printed circuit boards: Designs, Simulations and Fabrication"</i>, bioRxiv., February, 2018. , pp. 270124. Cold Spring Harbor Laboratory.
+	<p class="infolinks">[<a href="javascript:toggleInfo('vasilakis2018','abstract')">Abstract</a>] [<a href="javascript:toggleInfo('vasilakis2018','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.1101/270124" target="_blank">DOI</a>]</p>
+	</td>
+</tr>
+<tr id="abs_vasilakis2018" class="abstract noshow">
+	<td><b>Abstract</b>: Fast, efficient and more importantly accurate serial dilution is a requirement for many chemical and biological microfluidic-based applications. Over the last decade, a large number of microfluidic devices has been proposed, each demonstrating either a different type of dilution technique or complex system architectures based on various flow source combinations. In this work, a novel serial dilution architecture is demonstrated, implemented on a commercially fabricated printed circuit board (PCB). The proposed single layer, stepwise serial diluter comprises an optimised microfluidic network, where identical dilution ratio per stage can be ensured, either by applying equal pressure or equal flow rates at both inlets. The advantages of the proposed serial diluter are twofold. Firstly, it is structured as a modular unit cell, simplifying the required fluid driving mechanism to a single source for both sample and buffer solution. Thus, this unit cell can be seen as a fundamental microfluidic building block, which can form multistage serial dilution cascades, once combined appropriately with itself or other similar unit cells. Secondly, the serial diluter has been fabricated entirely using commercial PCB technologies, allowing the device to be interfaced with standard electronic components, if more complex miniature point-of-care (PoC) systems are desired, where the small footprint and accuracy of the device is of paramount importance.</td>
+</tr>
+<tr id="bib_vasilakis2018" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{vasilakis2018,
+  author = {Vasilakis, Nikolaos and Papadimitriou, Konstantinos I and Morgan, Hywel and Prodromakis, Themistoklis},
+  title = {Novel modular pressure and flow rate balanced microfluidic serial dilution networks on printed circuit boards: Designs, Simulations and Fabrication},
+  journal = {bioRxiv},
+  publisher = {Cold Spring Harbor Laboratory},
+  year = {2018},
+  pages = {270124},
+  doi = {10.1101/270124}
+}
+</pre></td>
+</tr>
+<tr id="pechlivanidis2017" class="entry">
+	<td>Pechlivanidis NG, <font color="aqua"> <u>Papadimitriou KI</u></font>, Evans D, Vasilakis N and Prodromakis T (2017), <i>"Towards A Smartphone-Aided Electronic ELISA For Real-Time Electrochemical Monitoring"</i>, In Circuits and Systems (ISCAS), 2017 IEEE International Symposium on., September, 2017. 
+	<p class="infolinks">[<a href="javascript:toggleInfo('pechlivanidis2017','abstract')">Abstract</a>] [<a href="javascript:toggleInfo('pechlivanidis2017','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.1109/ISCAS.2017.8050616" target="_blank">DOI</a>]</p>
+	</td>
+</tr>
+<tr id="abs_pechlivanidis2017" class="abstract noshow">
+	<td><b>Abstract</b>: This paper details the design and fabrication of a portable, smartphone-integrated electronic platform, tailored to read-out electronic ELISA (eELISA) data from printed circuit board (PCB)-based sensors. The instrument features eight independent, re-configurable current input channels, each consisting of a low-noise transimpedance amplifier (TIA) and filtering stage coupled to low-noise switch ICs for automatic current range detection. A bipolar, 16-bit resolution voltage-input analog-to-digital converter (ADC) has been employed for digitisation of converted current values received from the analogue front-end. In addition, a bipolar, 12-bit resolution digital-to-analog converter (DAC) combined with standard three-electrode potentiostats provides wide range biasing voltages to the amperometric sensors. The resulting digital data is transmitted via serial interface to an Android-based smartphone, where an ergonomic user interface guides the operator through the detection process. The customised Android application (App) provides real-time monitoring of the electrochemical cell and stores returned biochemical data on the device once measurement is complete.</td>
+</tr>
+<tr id="bib_pechlivanidis2017" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@inproceedings{pechlivanidis2017,
+  author = {Pechlivanidis, Nikolaos G. and Papadimitriou, Konstantinos I. and Evans, Daniel and Vasilakis, Nikolaos and Prodromakis, Themistoklis},
+  title = {Towards A Smartphone-Aided Electronic ELISA For Real-Time Electrochemical Monitoring},
+  booktitle = {Circuits and Systems (ISCAS), 2017 IEEE International Symposium on},
+  year = {2017},
+  doi = {10.1109/ISCAS.2017.8050616}
+}
+</pre></td>
+</tr>
+<tr id="pligouroudis2017" class="entry">
+	<td>Pligouroudis M, <font color="aqua"> <u>Papadimitriou KI</u></font>, Evans D and Prodromakis T (2017), <i>"A Dual Switched-Capacitor Integrator Architecture For Versatile, Real-Time Amperometric Biosensing"</i>, In Circuits and Systems (ISCAS), 2017 IEEE International Symposium on., September, 2017. 
+	<p class="infolinks">[<a href="javascript:toggleInfo('pligouroudis2017','abstract')">Abstract</a>] [<a href="javascript:toggleInfo('pligouroudis2017','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.1109/ISCAS.2017.8050728" target="_blank">DOI</a>]</p>
+	</td>
+</tr>
+<tr id="abs_pligouroudis2017" class="abstract noshow">
+	<td><b>Abstract</b>: In this paper, a versatile, re-programmable, current-input bioinstrumentation board is presented for electrochemical amperometric measurements. The proposed instrument has been fabricated on a six layer printed circuit board (PCB) and exploits dual switched-capacitor (SC) integration and sample-and-hold (SH) techniques. It comprises off-the-shelf switch and amplifier ICs and a commercially available FPGA-based DSP unit for digital signal control and synchronisation. It features eight amperometric channels, has a dynamic current range of 100dB, can be powered-up by a USB port or a 5V battery and is portable, with dimensions of 110×110 mm^2 . An onboard digital-to-analog converter (DAC) combined with standard three-electrode potentiostats can provide precise, programmable biasing voltages to eight amperometric biosensors simultaneously. Validation of the robustness and accuracy of the proposed system is demonstrated by proof-of-concept amperometric measurements using a high-precision Keithley 6221 current source and NaCI solution on a PCB-based sensor.</td>
+</tr>
+<tr id="bib_pligouroudis2017" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@inproceedings{pligouroudis2017,
+  author = {Pligouroudis, Michail and Papadimitriou, Konstantinos I and Evans, Daniel and Prodromakis, Themistoklis},
+  title = {A Dual Switched-Capacitor Integrator Architecture For Versatile, Real-Time Amperometric Biosensing},
+  booktitle = {Circuits and Systems (ISCAS), 2017 IEEE International Symposium on},
+  year = {2017},
+  doi = {10.1109/ISCAS.2017.8050728}
+}
+</pre></td>
+</tr>
+<tr id="zeimpekis2017" class="entry">
+	<td>Zeimpekis I<sup><font color="red">*</font></sup>, <font color="aqua"> <u>Papadimitriou KI</u></font><sup><font color="red">*</font></sup>, Sun K, Hu C, Ashburn P, Morgan H and Prodromakis T (2017), <i>"A Sub-30 mpH Resolution Thin Film Transistor-Based Nanoribbon Biosensing Platform"</i>, Sensors., September, 2017.  Vol. 17(9) MDPI.
+	<p class="infolinks">[<a href="javascript:toggleInfo('zeimpekis2017','abstract')">Abstract</a>] [<a href="javascript:toggleInfo('zeimpekis2017','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.3390/s17092000" target="_blank">DOI</a>]</p>
+	</td>
+</tr>
+<tr id="abs_zeimpekis2017" class="abstract noshow">
+	<td><b>Abstract</b>: We present a complete biosensing system that comprises a Thin Film Transistor (TFT)-based nanoribbon biosensor and a low noise, high-performance bioinstrumentation platform, capable of detecting sub-30 mpH unit changes, validated by an enzymatic biochemical reaction. The nanoribbon biosensor was fabricated top-down with an ultra-thin (15 nm) polysilicon semiconducting channel that offers excellent sensitivity to surface potential changes. The sensor is coupled to an integrated circuit (IC), which combines dual switched-capacitor integrators with high precision analog-to-digital converters (ADCs). Throughout this work, we employed both conventional pH buffer measurements as well as urea-urease enzymatic reactions for benchmarking the overall performance of the system. The measured results from the urea-urease reaction demonstrate that the system can detect urea in concentrations as low as 25 μM, which translates to a change of 27 mpH, according to our initial pH characterisation measurements. The attained accuracy and resolution of our system as well as its low-cost manufacturability, high processing speed and portability make it a competitive solution for applications requiring rapid and accurate results at remote locations; a necessity for Point-of-Care (POC) diagnostic platforms. </td>
+</tr>
+<tr id="bib_zeimpekis2017" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{zeimpekis2017,
+  author = {Zeimpekis, Ioannis and Papadimitriou, Konstantinos I. and Sun, Kai and Hu, Chunxiao and Ashburn, Peter and Morgan, Hywel and Prodromakis, Themistoklis},
+  title = {A Sub-30 mpH Resolution Thin Film Transistor-Based Nanoribbon Biosensing Platform},
+  journal = {Sensors},
+  publisher = {MDPI},
+  year = {2017},
+  volume = {17},
+  number = {9},
+  doi = {10.3390/s17092000}
+}
+</pre></td>
+</tr>
+<tr id="vasilakis2017" class="entry">
+	<td>Vasilakis N, <font color="aqua"> <u>Papadimitriou KI</u></font>, Morgan H and Prodromakis T (2017), <i>"High-performance PCB-based capillary pumps for affordable point-of-care diagnostics"</i>, Microfluidics and Nanofluidics., June, 2017.  Vol. 21(6), pp. 103. Springer Berlin Heidelberg.
+	<p class="infolinks">[<a href="javascript:toggleInfo('vasilakis2017','abstract')">Abstract</a>] [<a href="javascript:toggleInfo('vasilakis2017','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.1007/s10404-017-1935-2" target="_blank">DOI</a>]</p>
+	</td>
+</tr>
+<tr id="abs_vasilakis2017" class="abstract noshow">
+	<td><b>Abstract</b>: Capillary pumps are integral components of passive microfluidic devices. They can displace precise volumes of liquid, avoiding the need for external active components, providing a solution for sample preparation modules in Point-of-Care (PoC) diagnostic platforms. In this work, we describe a variety of high-performance capillary pump designs, suitable for the Lab-on-Printed-Circuit-Board technology (LoPCB). Pumps are fabricated entirely on Printed Circuit Board (PCB) substrates via commercially available manufacturing processes. We demonstrate the concept of LoPCB technology and detail the fabrication method of different architectures of PCB-based capillary pumps. The capillary pumps are combined with microfluidic channels of various hydraulic resistances and characterised experimentally for different micropillar shapes and minimum feature size. Their performance in terms of flow rate is reported. Due to the superhydrophilic properties of oxygen plasma treated FR-4 PCB substrate, the capillary pump flow rates are much higher (138 μL/min, for devices comprising micropillar arrays without preceding microchannel) than comparable devices based on glass, silicon or polymers. Finally, we comment on the technology’s prospects, such as incorporating more complicated microfluidic networks that can be tailored for assays.</td>
+</tr>
+<tr id="bib_vasilakis2017" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{vasilakis2017,
+  author = {Vasilakis, Nikolaos and Papadimitriou, Konstantinos I and Morgan, Hywel and Prodromakis, Themistoklis},
+  title = {High-performance PCB-based capillary pumps for affordable point-of-care diagnostics},
+  journal = {Microfluidics and Nanofluidics},
+  publisher = {Springer Berlin Heidelberg},
+  year = {2017},
+  volume = {21},
+  number = {6},
+  pages = {103},
+  doi = {10.1007/s10404-017-1935-2}
+}
+</pre></td>
+</tr>
+<tr id="evans2017" class="entry">
+	<td>Evans D<sup><font color="red">*</font></sup>, <font color="aqua"> <u>Papadimitriou KI</u></font><sup><font color="red">*</font></sup>, Greathead L, Vasilakis N, Pantelidis P, Kelleher P, Morgan H and Prodromakis T (2017), <i>"An Assay System for Point-of-Care Diagnosis of Tuberculosis using Commercially Manufactured PCB Technology"</i>, Scientific Reports., April, 2017.  Nature Publishing Group.
+	<p class="infolinks">[<a href="javascript:toggleInfo('evans2017','abstract')">Abstract</a>] [<a href="javascript:toggleInfo('evans2017','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.1038/s41598-017-00783-8" target="_blank">DOI</a>]</p>
+	</td>
+</tr>
+<tr id="abs_evans2017" class="abstract noshow">
+	<td><b>Abstract</b>: Rapid advances in clinical technologies, detection sensitivity and analytical throughput have delivered a significant expansion in our knowledge of prognostic and diagnostic biomarkers in many common infectious diseases, such as Tuberculosis (TB). During the last decade, a significant number of approaches to TB diagnosis have been attempted at Point-of-Care (PoC), exploiting a large variation of techniques and materials. In this work, we describe an electronics-based Enzyme-Linked ImmunoSorbent Assay (eELISA), using a Lab-on-a-Printed Circuit Board (LoPCB) approach, for TB diagnosis based on cytokine detection. The test relies upon an electrochemical (amperometric) assay, comprising a high-precision bioinstrumentation board and amperometric sensors, produced exclusively using standard PCB manufacturing processes. Electrochemical detection uses standard Au and Ag electrodes together with a bespoke, low-power, multichannel, portable data-acquisition system. We demonstrate high-performance assay chemistry performed at microfluidic volumes on Au pads directly at the PCB surface with improved limit of detection (&nbsp;10 pg/mL) over standard colorimetric ELISA methods. The assay has also been implemented in plasma, showing the utility of the system for medical applications. This work is a significant step towards the development of a low-cost, portable, high-precision diagnostic and monitoring technology, which once combined with appropriate PCB-based microfluidic networks will provide complete LoPCB platforms.</td>
+</tr>
+<tr id="bib_evans2017" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{evans2017,
+  author = {Evans, Daniel and Papadimitriou, Konstantinos I and Greathead, Louise and Vasilakis, Nikolaos and Pantelidis, Panagiotis and Kelleher, Peter and Morgan, Hywel and Prodromakis, Themistoklis},
+  title = {An Assay System for Point-of-Care Diagnosis of Tuberculosis using Commercially Manufactured PCB Technology},
+  journal = {Scientific Reports},
+  publisher = {Nature Publishing Group},
+  year = {2017},
+  doi = {10.1038/s41598-017-00783-8}
+}
+</pre></td>
+</tr>
+<tr id="papadimitriou2016c" class="entry">
+	<td><font color="aqua"> <u>Papadimitriou KI</u></font>, Evans D, Morgan H and Prodromakis T (2016), <i>"A PCB-Based Electronic ELISA System for Rapid, Portable Infectious Disease Diagnosis"</i>, In Biomedical Circuits and Systems Conference (BioCAS), 2016., October, 2016. 
+	<p class="infolinks">[<a href="javascript:toggleInfo('papadimitriou2016c','abstract')">Abstract</a>] [<a href="javascript:toggleInfo('papadimitriou2016c','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.1109/BioCAS.2016.7833779" target="_blank">DOI</a>]</p>
+	</td>
+</tr>
+<tr id="abs_papadimitriou2016c" class="abstract noshow">
+	<td><b>Abstract</b>: In this paper an amperometric electrochemical detection method is demonstrated and implemented using exclusively Printed Circuit Board (PCB)-based technologies. A portable, reconfigurable, multichannel amperometric data-acquisition board has been designed and fabricated, dedicated to the measurement of current-input signals delivered by the PCB-based biosensor. The electronic read-out circuit is able to provide constant biasing voltages to the amperometric sensor, measure in real-time the sensor's output currents, digitise them using high-accuracy Analog-to-Digital Converters (ADCs) and send the binary data to the user either through a USB2.0 interface or via an on-board TFT touch-screen. In order to validate the robustness and accuracy of the combined system, proof-of-concept amperometric experiments have taken place using our custom-made PCB-based system and standard electrochemical substrates. The results obtained have been cross-validated by means of standard colorimetric analysis and their differences have been highlighted and analyzed.</td>
+</tr>
+<tr id="bib_papadimitriou2016c" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@inproceedings{papadimitriou2016c,
+  author = {Papadimitriou, Konstantinos I and Evans, Daniel and Morgan, Hywel and Prodromakis, Themistoklis},
+  title = {A PCB-Based Electronic ELISA System for Rapid, Portable Infectious Disease Diagnosis},
+  booktitle = {Biomedical Circuits and Systems Conference (BioCAS), 2016},
+  year = {2016},
+  doi = {10.1109/BioCAS.2016.7833779}
+}
+</pre></td>
+</tr>
+<tr id="pedrigi2016b" class="entry">
+	<td>Pedrigi RM, <font color="aqua"> <u>Papadimitriou KI</u></font>, Kondiboyina A, Sidhu S, Chau J, Patel MB, Baerswyl DC, Drakakis EM and Krams R (2016), <i>"Disturbed Cyclical Stretch of Endothelial Cells Promotes Nuclear Expression of the Pro-atherogenic Transcription Factor NF-kB"</i>, Annals of Biomedical Engineering., October, 2016. 
+	<p class="infolinks">[<a href="javascript:toggleInfo('pedrigi2016b','abstract')">Abstract</a>] [<a href="javascript:toggleInfo('pedrigi2016b','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.1007/s10439-016-1750-z" target="_blank">DOI</a>]</p>
+	</td>
+</tr>
+<tr id="abs_pedrigi2016b" class="abstract noshow">
+	<td><b>Abstract</b>: Exposure of endothelial cells to low and multidirectional blood flow is known to promote a pro-atherogenic phenotype. The mechanics of the vessel wall is another important mechano-stimulus within the endothelial cell environment, but no study has examined whether changes in the magnitude and direction of cell stretch can be pro-atherogenic. Herein, we developed a custom cell stretching device to replicate the in vivo stretch environment of the endothelial cell and examined whether low and multidirectional stretch promote nuclear translocation of NF-κB. A fluid–structure interaction model of the device demonstrated a nearly uniform strain within the region of cell attachment and a negligible magnitude of shear stress due to cyclical stretching of the cells in media. Compared to normal cyclical stretch, a low magnitude of cyclical stretch or no stretch caused increased expression of nuclear NF-κB (p = 0.09 and p < 0.001, respectively). Multidirectional stretch also promoted significant nuclear NF-κB expression, comparable to the no stretch condition, which was statistically higher than the low (p < 0.001) and normal (p < 0.001) stretch conditions. This is the first study to show that stretch conditions analogous to atherogenic blood flow profiles can similarly promote a pro-atherogenic endothelial cell phenotype, which supports a role for disturbed vessel wall mechanics as a pathological cell stimulus in the development of advanced atherosclerotic plaques.</td>
+</tr>
+<tr id="bib_pedrigi2016b" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{pedrigi2016b,
+  author = {Pedrigi, Ryan M. and Papadimitriou, Konstantinos I. and Kondiboyina, Avinash and Sidhu, Sukjinder and Chau, James and Patel, Miten B. and Baerswyl, Daniel C. and Drakakis, Emmanuel M. and Krams, Rob},
+  title = {Disturbed Cyclical Stretch of Endothelial Cells Promotes Nuclear Expression of the Pro-atherogenic Transcription Factor NF-kB},
+  journal = {Annals of Biomedical Engineering},
+  year = {2016},
+  doi = {10.1007/s10439-016-1750-z}
+}
+</pre></td>
+</tr>
+<tr id="vasilakis2016b" class="entry">
+	<td>Vasilakis N, <font color="aqua"> <u>Papadimitriou KI</u></font>, Evans D, Morgan H and Prodromakis T (2016), <i>"The Lab-on-PCB Framework for Affordable, Electronic-Based Point-of-Care Diagnostics: from Design to Manufacturing"</i>, In IEEE-NIH 2016 Special Topics Conference on Healthcare Innovations and Point-of-Care Technologies., October, 2016. 
+	<p class="infolinks">[<a href="javascript:toggleInfo('vasilakis2016b','abstract')">Abstract</a>] [<a href="javascript:toggleInfo('vasilakis2016b','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.1109/HIC.2016.7797713" target="_blank">DOI</a>]</p>
+	</td>
+</tr>
+<tr id="abs_vasilakis2016b" class="abstract noshow">
+	<td><b>Abstract</b>: A novel, Lab-on-Printed Circuit Board (LoPCB) manufacturing technology is demonstrated for the development of low-cost electrochemical biosensors combined with microfluidics for Point-of-Care (PoC) applications. An analysis of the developed PCB architecture is presented, detailing the three development areas of the proposed LoPCB platform, i.e. microfluidics, biosensors and electronics. Design rules and potential fabrication limitations are also discussed, based on the characterization of prototype fabricated systems. Two PCB-based devices have been designed and fabricated, a microfluidic active diluter with a variable and actively controlled dilution ratio and an electrochemical biosensor. The obtained results demonstrate the feasibility of a complete LoPCB platform, where all three compartments will co-exist and co-operate, providing an electronic-based PoC system for electrochemical biosensing.</td>
+</tr>
+<tr id="bib_vasilakis2016b" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@inproceedings{vasilakis2016b,
+  author = {Vasilakis, Nikolaos and Papadimitriou, Konstantinos I and Evans, Daniel and Morgan, Hywel and Prodromakis, Themistoklis},
+  title = {The Lab-on-PCB Framework for Affordable, Electronic-Based Point-of-Care Diagnostics: from Design to Manufacturing},
+  booktitle = {IEEE-NIH 2016 Special Topics Conference on Healthcare Innovations and Point-of-Care Technologies},
+  year = {2016},
+  doi = {10.1109/HIC.2016.7797713}
+}
+</pre></td>
+</tr>
+<tr id="papadimitriou2016a" class="entry">
+	<td><font color="aqua"> <u>Papadimitriou KI</u></font>, Houssein A and Drakakis E (2016), <i>"Analytical study, performance optimisation and design rules for customary static and dynamic subthreshold MOS translinear topologies"</i>, Microelectronics Journal., July, 2016.  Vol. 53, pp. 177-193.
+	<p class="infolinks">[<a href="javascript:toggleInfo('papadimitriou2016a','abstract')">Abstract</a>] [<a href="javascript:toggleInfo('papadimitriou2016a','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.1016/j.mejo.2016.04.007" target="_blank">DOI</a>]</p>
+	</td>
+</tr>
+<tr id="abs_papadimitriou2016a" class="abstract noshow">
+	<td><b>Abstract</b>: This paper aims to provide qualitative and quantitative answers to questions related to the impact of transistor-level design parameters upon the performance and accuracy of static and dynamic translinear (TL) circuits in subthreshold CMOS. A methodical, step-by-step, symbolic analysis, exploiting a simplified EKV-based approximation is performed upon customary static TL topologies, including the four MOS transistor (MOST) multiplier/divider, the squarer circuit and the alternating formation of a six MOST multiplier/divider. The logarithmic integrator is treated as a typical dynamic TL analysis example. The produced EKV-based symbolic analysis results are compared against the ideally expected behaviours and Spectre - BSIM3V3 model - simulations. The satisfying agreement between the proposed EKV-based model and Spectre simulator allowed us to proceed further and investigate the conditions under which optimal behaviour is achieved. Optimisation techniques, based on MOSTs' geometrical parameters combinations, resulted in the articulation of practical design rules.</td>
+</tr>
+<tr id="bib_papadimitriou2016a" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{papadimitriou2016a,
+  author = {Papadimitriou, KI and Houssein, A and Drakakis, EM},
+  title = {Analytical study, performance optimisation and design rules for customary static and dynamic subthreshold MOS translinear topologies},
+  journal = {Microelectronics Journal},
+  year = {2016},
+  volume = {53},
+  pages = {177--193},
+  doi = {10.1016/j.mejo.2016.04.007}
+}
+</pre></td>
+</tr>
+<tr id="papadimitriou2016b" class="entry">
+	<td><font color="aqua"> <u>Papadimitriou KI</u></font>, Wang C, Rogers ML, Gowers SA, Leong CL, Boutelle MG and Drakakis EM (2016), <i>"High-performance bioinstrumentation for real-time neuroelectrochemical traumatic brain injury monitoring"</i>, Frontiers in human neuroscience., May, 2016.  Vol. 10, pp. 212. Frontiers.
+	<p class="infolinks">[<a href="javascript:toggleInfo('papadimitriou2016b','abstract')">Abstract</a>] [<a href="javascript:toggleInfo('papadimitriou2016b','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.3389/fnhum.2016.00212" target="_blank">DOI</a>]</p>
+	</td>
+</tr>
+<tr id="abs_papadimitriou2016b" class="abstract noshow">
+	<td><b>Abstract</b>: Traumatic brain injury (TBI) has been identified as an important cause of death and severe disability in all age groups and particularly in children and young adults. Central to TBIs devastation is a delayed secondary injury that occurs in 30–40% of TBI patients each year, while they are in the hospital Intensive Care Unit (ICU). Secondary injuries reduce survival rate after TBI and usually occur within 7 days post-injury. State-of-art monitoring of secondary brain injuries benefits from the acquisition of high-quality and time-aligned electrical data i.e., ElectroCorticoGraphy (ECoG) recorded by means of strip electrodes placed on the brains surface, and neurochemical data obtained via rapid sampling microdialysis and microfluidics-based biosensors measuring brain tissue levels of glucose, lactate and potassium. This article progresses the field of multi-modal monitoring of the injured human brain by presenting the design and realization of a new, compact, medical-grade amperometry, potentiometry and ECoG recording bioinstrumentation. Our combined TBI instrument enables the high-precision, real-time neuroelectrochemical monitoring of TBI patients, who have undergone craniotomy neurosurgery and are treated sedated in the ICU. Electrical and neurochemical test measurements are presented, confirming the high-performance of the reported TBI bioinstrumentation.</td>
+</tr>
+<tr id="bib_papadimitriou2016b" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{papadimitriou2016b,
+  author = {Papadimitriou, Konstantinos I and Wang, Chu and Rogers, Michelle L and Gowers, Sally AN and Leong, Chi L and Boutelle, Martyn G and Drakakis, Emmanuel M},
+  title = {High-performance bioinstrumentation for real-time neuroelectrochemical traumatic brain injury monitoring},
+  journal = {Frontiers in human neuroscience},
+  publisher = {Frontiers},
+  year = {2016},
+  volume = {10},
+  pages = {212},
+  doi = {10.3389/fnhum.2016.00212}
+}
+</pre></td>
+</tr>
+<tr id="pedrigi2016a" class="entry">
+	<td>Pedrigi RM, <font color="aqua"> <u>Papadimitriou KI</u></font>, Kondiboyina A, Sidhu S, Chau J, Emmanuel M. D and Krams R (2016), <i>"Atherogenic Stretch Promotes Nuclear Expression of NF-&kappa;B in Endothelial Cells"</i>, In Summer Biomechanics, Bioengineering and Biotransport Conference. 
+	<p class="infolinks"> [<a href="javascript:toggleInfo('pedrigi2016a','bibtex')">BibTeX</a>]</p>
+	</td>
+</tr>
+<tr id="bib_pedrigi2016a" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@inproceedings{pedrigi2016a,
+  author = {Pedrigi, Ryan M. and Papadimitriou, Konstantinos I. and Kondiboyina, Avinash and Sidhu, Sukhjinder and Chau, James and Emmanuel M., Drakakis and Krams, Rob},
+  title = {Atherogenic Stretch Promotes Nuclear Expression of NF-&kappa;B in Endothelial Cells},
+  booktitle = {Summer Biomechanics, Bioengineering and Biotransport Conference},
+  year = {2016}
+}
+</pre></td>
+</tr>
+<tr id="houssein2015" class="entry">
+	<td>Houssein A, <font color="aqua"> <u>Papadimitriou KI</u></font> and Drakakis EM (2015), <i>"A 1.26&mu;W Cytomimetic IC Emulating Complex Nonlinear Mammalian Cell Cycle Dynamics: Synthesis, Simulation and Proof-of-Concept Measured Results"</i>, IEEE Transactions on Biomedical Circuits and Systems., August, 2015.  Vol. 9(4), pp. 543-554. IEEE.
+	<p class="infolinks">[<a href="javascript:toggleInfo('houssein2015','abstract')">Abstract</a>] [<a href="javascript:toggleInfo('houssein2015','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.1109/TBCAS.2015.2450021" target="_blank">DOI</a>]</p>
+	</td>
+</tr>
+<tr id="abs_houssein2015" class="abstract noshow">
+	<td><b>Abstract</b>: Cytomimetic circuits represent a novel, ultra low-power, continuous-time, continuous-value class of circuits, capable of mapping on silicon cellular and molecular dynamics modelled by means of nonlinear ordinary differential equations (ODEs). Such monolithic circuits are in principle able to emulate on chip, single or multiple cell operations in a highly parallel fashion. Cytomimetic topologies can be synthesized by adopting the Nonlinear Bernoulli Cell Formalism (NBCF), a mathematical framework that exploits the striking similarities between the equations describing weakly-inverted Metal-Oxide Semiconductor (MOS) devices and coupled nonlinear ODEs, typically appearing in models of naturally encountered biochemical systems. The NBCF maps biological state variables onto strictly positive subthreshold MOS circuit currents. This paper presents the synthesis, the simulation and proof-of-concept chip results corresponding to the emulation of a complex cellular network mechanism, the skeleton model for the network of Cyclin-dependent Kinases (CdKs) driving the mammalian cell cycle. This five variable nonlinear biological model, when appropriate model parameter values are assigned, can exhibit multiple oscillatory behaviors, varying from simple periodic oscillations, to complex oscillations such as quasi-periodicity and chaos. The validity of our approach is verified by simulated results with realistic process parameters from the commercially available AMS 0.35 μm technology and by chip measurements. The fabricated chip occupies an area of 2.27 mm^2 and consumes a power of 1.26 μW from a power supply of 3 V. The presented cytomimetic topology follows closely the behavior of its biological counterpart, exhibiting similar time-dependent solutions of the Cdk complexes, the transcription factors and the proteins.</td>
+</tr>
+<tr id="bib_houssein2015" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{houssein2015,
+  author = {Houssein, Alexandros and Papadimitriou, Konstantinos I and Drakakis, Emmanuel M},
+  title = {A 1.26&mu;W Cytomimetic IC Emulating Complex Nonlinear Mammalian Cell Cycle Dynamics: Synthesis, Simulation and Proof-of-Concept Measured Results},
+  journal = {IEEE Transactions on Biomedical Circuits and Systems},
+  publisher = {IEEE},
+  year = {2015},
+  volume = {9},
+  number = {4},
+  pages = {543--554},
+  doi = {10.1109/TBCAS.2015.2450021}
+}
+</pre></td>
+</tr>
+<tr id="papadimitriou2015b" class="entry">
+	<td><font color="aqua"> <u>Papadimitriou KI</u></font>, Zeimpekis I, Moschou D, Sun K, Hu C, Ashburn P, Morgan H and Prodromakis T (2015), <i>"Towards a high-precision, embedded system for versatile sensitive biosensing measurements"</i>, In Biomedical Circuits and Systems Conference (BioCAS), 2015 IEEE., August, 2015. , pp. 1-4.
+	<p class="infolinks">[<a href="javascript:toggleInfo('papadimitriou2015b','abstract')">Abstract</a>] [<a href="javascript:toggleInfo('papadimitriou2015b','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.1109/BioCAS.2015.7348432" target="_blank">DOI</a>]</p>
+	</td>
+</tr>
+<tr id="abs_papadimitriou2015b" class="abstract noshow">
+	<td><b>Abstract</b>: This paper demonstrates a versatile, high-accuracy, data-acquisition electronic platform for biosensing measurements, capable of collecting minute current and voltage input signals, stemming from various types of amperometric and potentiometric biosensors. The instrument is able to process the incoming analog signals in a digital manner and export them back to the user either as an amplified analog signal or in digital format through a USB 2.0 interface. The proposed system comprises off-the-shelf IC components and a commercially available FPGA-based DSP unit. The performance of the instrumentation platform has been tested initially by means of very small ideal current and voltage signals generated by precise electronic equipments and subsequently has been validated via proof-of-concept experiments with amperometric and potentiometric sensors. The results shown in this paper exhibit potential for integrating specific sections of the proposed instrumentation board with appropriate biosensors, towards developing affordable, yet reliable Point-Of-Care (POC) diagnostic tools for sensitive biochemical measurements.</td>
+</tr>
+<tr id="bib_papadimitriou2015b" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@inproceedings{papadimitriou2015b,
+  author = {Papadimitriou, Konstantinos I and Zeimpekis, Ioannis and Moschou, Despina and Sun, Kai and Hu, Chunxiao and Ashburn, Peter and Morgan, Hywel and Prodromakis, Themistoklis},
+  title = {Towards a high-precision, embedded system for versatile sensitive biosensing measurements},
+  booktitle = {Biomedical Circuits and Systems Conference (BioCAS), 2015 IEEE},
+  year = {2015},
+  pages = {1--4},
+  doi = {10.1109/BioCAS.2015.7348432}
+}
+</pre></td>
+</tr>
+<tr id="papadimitriou2015" class="entry">
+	<td><font color="aqua"> <u>Papadimitriou KI</u></font>, Liu S-C, Indiveri G and Drakakis EM (2015), <i>"Neuromorphic log-domain silicon synapse circuits obey bernoulli dynamics: a unifying tutorial analysis"</i>, Frontiers in Neuroscience., January, 2015.  Vol. 8, pp. 428. Frontiers.
+	<p class="infolinks">[<a href="javascript:toggleInfo('papadimitriou2015','abstract')">Abstract</a>] [<a href="javascript:toggleInfo('papadimitriou2015','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.3389/fnins.2014.00428" target="_blank">DOI</a>]</p>
+	</td>
+</tr>
+<tr id="abs_papadimitriou2015" class="abstract noshow">
+	<td><b>Abstract</b>: The field of neuromorphic silicon synapse circuits is revisited and a parsimonious mathematical framework able to describe the dynamics of this class of log-domain circuits in the aggregate and in a systematic manner is proposed. Starting from the Bernoulli Cell Formalism (BCF), originally formulated for the modular synthesis and analysis of externally linear, time-invariant logarithmic filters, and by means of the identification of new types of Bernoulli Cell (BC) operators presented here, a generalized formalism (GBCF) is established. The expanded formalism covers two new possible and practical combinations of a MOS transistor (MOST) and a linear capacitor. The corresponding mathematical relations codifying each case are presented and discussed through the tutorial treatment of three well-known transistor-level examples of log-domain neuromorphic silicon synapses. The proposed mathematical tool unifies past analysis approaches of the same circuits under a common theoretical framework. The speed advantage of the proposed mathematical framework as an analysis tool is also demonstrated by a compelling comparative circuit analysis example of high order, where the GBCF and another well-known log-domain circuit analysis method are used for the determination of the input-output transfer function of the high (4th) order topology.</td>
+</tr>
+<tr id="bib_papadimitriou2015" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{papadimitriou2015,
+  author = {Papadimitriou, Konstantinos I and Liu, Shih-Chii and Indiveri, Giacomo and Drakakis, Emmanuel M},
+  title = {Neuromorphic log-domain silicon synapse circuits obey bernoulli dynamics: a unifying tutorial analysis},
+  journal = {Frontiers in Neuroscience},
+  publisher = {Frontiers},
+  year = {2015},
+  volume = {8},
+  pages = {428},
+  doi = {10.3389/fnins.2014.00428}
+}
+</pre></td>
+</tr>
+<tr id="papadimitriou2013" class="entry">
+	<td><font color="aqua"> <u>Papadimitriou KI</u></font>, Stan G-BV and Drakakis EM (2013), <i>"Systematic Computation of Nonlinear Cellular and Molecular Dynamics with Low-Power CytoMimetic Circuits: A Simulation Study"</i>, PLOS ONE., February, 2013.  Vol. 8(2)
+	<p class="infolinks">[<a href="javascript:toggleInfo('papadimitriou2013','abstract')">Abstract</a>] [<a href="javascript:toggleInfo('papadimitriou2013','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.1371/journal.pone.0053591" target="_blank">DOI</a>]</p>
+	</td>
+</tr>
+<tr id="abs_papadimitriou2013" class="abstract noshow">
+	<td><b>Abstract</b>: This paper presents a novel method for the systematic implementation of low-power microelectronic circuits aimed at computing nonlinear cellular and molecular dynamics. The method proposed is based on the Nonlinear Bernoulli Cell Formalism (NBCF), an advanced mathematical framework stemming from the Bernoulli Cell Formalism (BCF) originally exploited for the modular synthesis and analysis of linear, time-invariant, high dynamic range, logarithmic filters. Our approach identifies and exploits the striking similarities existing between the NBCF and coupled nonlinear ordinary differential equations (ODEs) typically appearing in models of naturally encountered biochemical systems. The resulting continuous-time, continuous-value, low-power CytoMimetic electronic circuits succeed in simulating fast and with good accuracy cellular and molecular dynamics. The application of the method is illustrated by synthesising for the first time microelectronic CytoMimetic topologies which simulate successfully: 1) a nonlinear intracellular calcium oscillations model for several Hill coefficient values and 2) a gene-protein regulatory system model. The dynamic behaviours generated by the proposed CytoMimetic circuits are compared and found to be in very good agreement with their biological counterparts. The circuits exploit the exponential law codifying the low-power subthreshold operation regime and have been simulated with realistic parameters from a commercially available CMOS process. They occupy an area of a fraction of a square-millimetre, while consuming between 1 and 12 microwatts of power. Simulations of fabrication-related variability results are also presented.</td>
+</tr>
+<tr id="bib_papadimitriou2013" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{papadimitriou2013,
+  author = {Papadimitriou, Konstantinos I. and Stan, Guy-Bart V. and Drakakis, Emmanuel M.},
+  title = {Systematic Computation of Nonlinear Cellular and Molecular Dynamics with Low-Power CytoMimetic Circuits: A Simulation Study},
+  journal = {PLOS ONE},
+  year = {2013},
+  volume = {8},
+  number = {2},
+  doi = {10.1371/journal.pone.0053591}
+}
+</pre></td>
+</tr>
+<tr id="papadimitriou2012" class="entry">
+	<td><font color="aqua"> <u>Papadimitriou KI</u></font> and Drakakis EM (2012), <i>"CMOS weak-inversion log-domain glycolytic oscillator: a cytomimetic circuit example"</i>, International Journal of Circuit Theory and Applications., June, 2012.  Vol. 42(2), pp. 173-194.
+	<p class="infolinks">[<a href="javascript:toggleInfo('papadimitriou2012','abstract')">Abstract</a>] [<a href="javascript:toggleInfo('papadimitriou2012','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.1002/cta.1847" target="_blank">DOI</a>]</p>
+	</td>
+</tr>
+<tr id="abs_papadimitriou2012" class="abstract noshow">
+	<td><b>Abstract</b>: This paper presents a 3 V, 1.21μW subthreshold log‐domain circuit which mimics the oscillations observed during the biochemical process of glycolysis due to the phosphofructokinase enzyme. The proposed electronic circuit is able to simulate the dynamics of the glycolytic oscillator and represent the time‐dependent concentration changes of the reactants and the products of the chemical process based on nonlinear differential equations which describe the biological system. By modifying specific circuit parameters, which correspond to certain chemical parameters, good agreement between the biochemical and electrical model results has been reached. The paper details the similarities between the equations that describe the biochemical process and the equations derived from the circuit analysis of a transistor and a source‐connected linear capacitor, a topology also known as the Bernoulli Cell. With the use of the Bernoulli Cell formalism, the chemical equations which describe the biochemical system have been transformed into their electrical equivalents. The analog circuit, which implements the whole process, has been synthesised, and simulation results including Monte Carlo analysis are provided, in order to verify the robustness of the proposed circuit and to compare its dynamics with prototype biological behaviour.</td>
+</tr>
+<tr id="bib_papadimitriou2012" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{papadimitriou2012,
+  author = {Papadimitriou, Konstantinos I and Drakakis, Emmanuel M},
+  title = {CMOS weak-inversion log-domain glycolytic oscillator: a cytomimetic circuit example},
+  journal = {International Journal of Circuit Theory and Applications},
+  year = {2012},
+  volume = {42},
+  number = {2},
+  pages = {173--194},
+  doi = {10.1002/cta.1847}
+}
+</pre></td>
+</tr>
+</tbody>
+</table>
+<footer>
+ <small>Created by <a href="http://jabref.sourceforge.net">JabRef</a> on 06/09/2018.</small>
+</footer>
+<!-- file generated by JabRef -->
+</div>
+</div>

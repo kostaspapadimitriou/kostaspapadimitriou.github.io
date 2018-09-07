@@ -1,0 +1,9 @@
+# main links
+main:
+     - title: "About"
+       url: /About/
+     - title: "Programming"
+       url: /Programming/
+     - title: "Publications"
+       url: /Publications/
+
