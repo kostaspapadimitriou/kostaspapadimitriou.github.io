@@ -18,6 +18,6 @@ In August 2014 I moved to the [School of Electronics and Computer Science](https
 My current research revolves around the development of electro-optical systems for near-infrared interferometry and time-domain diffuse optical systems for time-resolved spectroscopic measurements.    
 
 ## Research Interests
-Analogue VLSI circuits; ultra-low power bioelectronics; circuit theory; log-domain circuits; medical devices; PCB designs; microcontrollers & FPGAs; signal processing; point-of-care diagnostics; near-infrared spectroscopy; diffuse optical & diffuse correlation spectroscopy
+Analogue VLSI circuits; ultra-low power bioelectronics; circuit theory; log-domain circuits; medical devices; PCB designs; microcontrollers & FPGAs; signal processing; point-of-care diagnostics; near-infrared spectroscopy; diffuse optical & diffuse correlation spectroscopy.
 
 CV available upon request.
