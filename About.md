@@ -13,9 +13,11 @@ In 2010 I pursued a PhD with the [Bio-Inspired VLSI Circuits and Systems Group](
 
 From October 2012 until August 2014 I was involved in the Wellcome Trust/Department of Health Healthcare Innovation Challenge funded project *"Real-time detection of the onset of secondary brain injury in the intensive care unit"* as a Pre- and Post-Doctoral Research Associate. I was responsible for the design, programming and testing of the electronic devices that would interface with appropriate biosensors for real-time patient monitoring.
 
-In 2014 I moved to the [School of Electronics and Computer Science](https://www.ecs.soton.ac.uk/) of the University of Southampton as a Research Fellow in the EPSRC-funded project *"An electronic-based ELISA combined with microfluidics"*. I was responsible for the hardware and software implementation of the electronics of the project (PCB design & layout, microcontroller & FPGA programming, GUIs in Python). 
+In August 2014 I moved to the [School of Electronics and Computer Science](https://www.ecs.soton.ac.uk/) of the University of Southampton as a Research Fellow in the EPSRC-funded project *"An electronic-based ELISA combined with microfluidics"*. I was responsible for the hardware and software implementation of the electronics of the project (PCB design & layout, microcontroller & FPGA programming, GUIs in Python).
+
+My current research revolves around the development of electro-optical systems for near-infrared interferometry and time-domain diffuse optical systems for time-resolved spectroscopic measurements.    
 
 ## Research Interests
-Analogue VLSI circuits; IC- & PCB-level circuit designs; ultra-low power bioelectronics; circuit theory; transistor-level mathematical frameworks; design of medical electronic devices; microcontroller- & FPGA-based data acquisition and signal processing; point-of-care diagnostics;  diffuse optical & correlation spectroscopy.  
+Analogue VLSI circuits; ultra-low power bioelectronics; circuit theory; log-domain circuits; medical devices; PCB designs; microcontrollers & FPGAs; signal processing; point-of-care diagnostics; near-infrared spectroscopy; diffuse optical & diffuse correlation spectroscopy
 
 CV available upon request.
