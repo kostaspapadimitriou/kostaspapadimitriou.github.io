@@ -7,7 +7,7 @@ permalink: /About/
 
 I am a Research Associate at the [Department of Computer Science](http://www.cs.ucl.ac.uk/home/), University College London. 
 I graduated from the [National Technical University of Athens](https://www.ece.ntua.gr/en), where I obtained a Dipl.-Ing. in Electrical and Computer Engineering.
-Subsequently, I obtained an M.Sc. in Biomedical Engineering and a D.I.C. from the [Department of BioEngineering](https://www.imperial.ac.uk/bioengineering) of Imperial College London.
+Subsequently, I obtained an M.Sc. in Biomedical Engineering and a D.I.C. from the [Department of BioEngineering](https://www.imperial.ac.uk/bioengineering) of Imperial College London. I am the recipient of the *Stella Bagrit Centenary Memorial Prize* for the best M.Sc. final project in Biomedical Engineering. 
 
 In 2010 I pursued a PhD with the [Bio-Inspired VLSI Circuits and Systems Group](http://www.bg.ic.ac.uk/research/e.drakakis/) of Imperial College London, under the supervision of [Dr. Emmanuel M. Drakakis](https://www.imperial.ac.uk/people/e.drakakis). During my PhD, my research primarily focused on the development of ultra low-power integrated BioElectronics for the continuous-time, continuous-value computation of highly non-linear cellular and molecular dynamics. My PhD thesis can be found online [here](https://ethos.bl.uk/OrderDetails.do;jsessionid=E900351C7863F2580F8CE862806F5AFD?uin=uk.bl.ethos.668216).
 
@@ -20,4 +20,4 @@ My current research revolves around the development of electro-optical systems f
 ## Research Interests
 Analogue VLSI circuits; ultra-low power bioelectronics; circuit theory; log-domain circuits; medical devices; PCB designs; microcontrollers & FPGAs; signal processing; point-of-care diagnostics; near-infrared spectroscopy; diffuse optical & diffuse correlation spectroscopy.
 
-CV available upon request.
+My CV is available upon request.
