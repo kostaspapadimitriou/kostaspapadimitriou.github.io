@@ -102,10 +102,10 @@ analytics:
 author:
   name             : "Konstantinos I. Papadimitriou"
   avatar           : "/images/Bio_Photo.jpg"
-  bio              : "Research Associate <br/> in CS @ UCL"
+  bio              : "Senior Digital Hardware Engineer <br/> @ Intellian Technologies"
   location         : "London, U.K."
   email            : k[dot]papadimitriou[at]ucl[dot]ac[dot]uk
-  uri              : https://iris.ucl.ac.uk/iris/browse/profile?upi=KPAPA49
+  uri              : https://kostaspapadimitriou.github.io/
   google_scholar   : citations?user=LvApgFAAAAAJ&hl=en
   researchgate	   : Konstantinos_Papadimitriou8	
   home             : # null (default), "absolute or relative url to link to author home"
