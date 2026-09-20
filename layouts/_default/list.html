@@ -1,0 +1,30 @@
+{{ define "main" }}
+<div class="wrap" style="max-width:980px;margin:0 auto;padding:1rem">
+
+  {{ partial "header.html" . }}
+
+  <main style="margin-top:1.5rem">
+    <section class="card" style="padding:1.25rem">
+      <h1>{{ .Title }}</h1>
+      {{ if .Params.description }}<p class="tagline">{{ .Params.description }}</p>{{ end }}
+      {{/* Render page body so shortcodes in _index.md are expanded */}}
+      {{ .Content }}
+    </section>
+
+    <section style="margin-top:1.25rem">
+      {{ range .Pages }}
+        <article class="card" style="margin-bottom:1rem;padding:1rem">
+          <h2><a href="{{ .RelPermalink }}">{{ .Title }}</a></h2>
+          <p style="opacity:.9">{{ .Summary }}</p>
+        </article>
+      {{ end }}
+    </section>
+  </main>
+
+  <footer style="margin-top:2rem">
+    © {{ now.Format "2006" }} {{ .Site.Params.author }} · Built with Hugo
+  </footer>
+
+</div>
+{{ end }}
+

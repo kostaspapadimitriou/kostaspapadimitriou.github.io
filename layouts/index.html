@@ -1,0 +1,49 @@
+{{ define "main" }}
+<div class="wrap">
+
+  {{ partial "header.html" . }}
+
+  <!-- HERO: single row with neon welcome, subtitle, content on left; avatar on right -->
+  <section class="hero" style="margin-top:1.25rem; display:flex; gap:2rem; align-items:flex-start; flex-wrap:wrap;">
+    <div style="flex:1; min-width:260px;">
+      <h1 class="neon-welcome" style="margin:0 0 .4rem 0;">Welcome to my personal website</h1>
+      <h2 style="margin:0 0 .8rem 0; font-weight:600; font-size:1.05rem; color:var(--muted);">
+        Lead Hardware engineer — FPGA, embedded systems and high-speed multilayer PCBs.
+      </h2>
+
+      <div class="hero-content lead" style="margin-top:.4rem">
+        {{ .Content }}
+      </div>
+
+      <p class="cta" style="margin-top:1rem">
+        <a class="primary" href="/publications/">Publications</a>
+        <a class="ghost" href="/programming/">Programming</a>
+      </p>
+    </div>
+
+    <div style="flex:0 0 160px; display:flex; justify-content:center; align-items:flex-start;">
+      <div class="avatar-wrap" style="padding:6px;border-radius:14px;">
+        {{ with .Site.Params.avatarLarge }}
+          <img class="avatar-large" src="{{ . }}" alt="{{ $.Site.Params.author }} avatar" width="140" height="140" loading="lazy" style="border-radius:10px;object-fit:cover;">
+        {{ else }}
+          <img class="avatar-large" src="/images/Darth_Linux.jpg" alt="{{ .Site.Params.author }} avatar" width="140" height="140" loading="lazy" style="border-radius:10px;object-fit:cover;">
+        {{ end }}
+      </div>
+    </div>
+  </section>
+
+<section class="card" style="margin-top:2rem;padding:1.25rem">
+  <h3>Please note:</h3>
+  <p><strong>Open‑source examples provided as‑is.</strong> Code, demos, and documentation are for reference only and are supplied without warranty. They may rely on third‑party libraries, services, or APIs; verify licenses, credentials, and compatibility before use.</p>
+  <p style="margin-top:0.5rem"><strong style="color:#c00;text-decoration:underline">Use at your own risk.</strong></p>
+</section>
+
+
+  <footer style="margin-top:2rem">
+    © {{ now.Format "2006" }} {{ .Site.Params.author }} · Built with Hugo
+  </footer>
+
+</div>
+{{ end }}
+
+

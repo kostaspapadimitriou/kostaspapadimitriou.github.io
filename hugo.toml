@@ -1,0 +1,10 @@
+baseURL = "/"
+title = "Konstantinos I. Papadimitriou"
+
+
+
+[params]
+author = "Konstantinos I. Papadimitriou"
+description = "Lead Hardware Engineer — FPGA architectures, embedded systems."
+authorShort = "K. Papadimitriou"
+

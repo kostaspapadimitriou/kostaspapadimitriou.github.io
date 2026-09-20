@@ -1,0 +1,46 @@
+# Hugo / static site build artifacts
+/public/
+/_site/
+/resources/_gen/
+/.sass-cache/
+/node_modules/
+.DS_Store
+# Hugo / static site build artifacts
+/public/
+/_site/
+/resources/_gen/
+/.sass-cache/
+/node_modules/
+.DS_Store
+# Hugo / static site build artifacts
+/public/
+/_site/
+/resources/_gen/
+/.sass-cache/
+/node_modules/
+.DS_Store
+/public/
+/_site/
+/resources/_gen/
+/.sass-cache/
+/node_modules/
+.DS_Store
+/public/
+/_site/
+/resources/_gen/
+/.sass-cache/
+/node_modules/
+.DS_Store
+/public/
+/_site/
+/resources/_gen/
+/.sass-cache/
+/node_modules/
+.DS_Store
+/public/
+/_site/
+/resources/_gen/
+/.sass-cache/
+/node_modules/
+.DS_Store
+.hugo_build.lock

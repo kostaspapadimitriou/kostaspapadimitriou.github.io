@@ -1,0 +1,19 @@
+{{ define "main" }}
+<div class="wrap" style="max-width:980px;margin:0 auto;padding:1rem">
+
+  {{ partial "header.html" . }}
+
+  <main style="margin-top:1.5rem">
+    <article class="card" style="padding:1.25rem">
+      <h1>{{ .Title }}</h1>
+      {{ .Content }}
+    </article>
+  </main>
+
+  <footer style="margin-top:2rem">
+    © {{ now.Format "2006" }} {{ .Site.Params.author }} · Built with Hugo
+  </footer>
+
+</div>
+{{ end }}
+
